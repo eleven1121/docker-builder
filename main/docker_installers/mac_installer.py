@@ -87,20 +87,131 @@ class MacDockerInstaller(BaseDockerInstaller):
             if os.path.exists("/Applications/Docker.app"):
                 info("Docker Desktop已安装，跳过安装步骤")
                 return True
+                
+            # 询问用户选择安装方式
+            info("请选择Docker Desktop安装方式:")
+            info("1. 使用Homebrew安装 (可能会卡住)")
+            info("2. 手动下载安装")
+            choice = input("请选择 [1/2] 默认为2: ")
             
-            # 使用Homebrew安装Docker
-            info("使用Homebrew安装Docker Desktop...")
-            run_command("brew install --cask docker")
+            # 默认选择手动安装
+            choice = choice.strip() if choice.strip() else "2"
             
-            if not os.path.exists("/Applications/Docker.app"):
-                raise DockerInstallError("Docker Desktop安装失败，请手动下载并安装Docker Desktop")
-            
-            success("Docker Desktop安装完成")
-            return True
+            if choice == "1":
+                # 使用Homebrew安装Docker
+                return self._install_with_homebrew()
+            else:
+                # 手动安装Docker
+                return self._install_manually()
+                
         except CommandError as e:
             error(f"Docker Desktop安装失败: {str(e)}")
-            warning("请手动下载并安装Docker Desktop，下载地址: https://www.docker.com/products/docker-desktop")
-            raise DockerInstallError(f"Docker Desktop安装失败: {str(e)}")
+            warning("请手动下载并安装Docker Desktop")
+            return self._install_manually()
+        except Exception as e:
+            error(f"Docker Desktop安装过程中发生未预期的异常: {str(e)}")
+            warning("请手动下载并安装Docker Desktop")
+            return self._install_manually()
+            
+    def _install_with_homebrew(self):
+        """
+        使用Homebrew安装Docker Desktop
+        
+        Returns:
+            bool: 安装成功返回True
+            
+        Raises:
+            DockerInstallError: 如果安装失败
+        """
+        try:
+            import threading
+            import time
+            
+            info("使用Homebrew安装Docker Desktop...")
+            info("这可能需要几分钟时间，请耐心等待")
+            info("如果长时间卡住不动，可以按Ctrl+C然后选择手动安装")
+            
+            # 设置超时时间（秒）
+            timeout_seconds = 300  # 5分钟
+            
+            # 创建一个事件来检测命令是否完成
+            command_finished = threading.Event()
+            
+            # 定义一个函数来运行命令
+            def run_brew_command():
+                try:
+                    run_command("brew install --cask docker", verbose=True, preserve_color=True)
+                    command_finished.set()
+                except Exception:
+                    pass
+                    
+            # 在新线程中启动命令
+            command_thread = threading.Thread(target=run_brew_command)
+            command_thread.daemon = True
+            command_thread.start()
+            
+            # 等待命令完成或超时
+            timeout_occurred = not command_finished.wait(timeout_seconds)
+            
+            if timeout_occurred:
+                warning(f"Homebrew安装超时 ({timeout_seconds}秒)")
+                warning("请尝试手动安装Docker Desktop")
+                return self._install_manually()
+            
+            # 检查安装是否成功
+            if not os.path.exists("/Applications/Docker.app"):
+                warning("Homebrew安装完成，但Docker Desktop未找到")
+                return self._install_manually()
+                
+            success("Docker Desktop安装完成")
+            return True
+            
+        except Exception as e:
+            warning(f"Homebrew安装失败: {str(e)}")
+            return self._install_manually()
+            
+    def _install_manually(self):
+        """
+        指导用户手动安装Docker Desktop
+        
+        Returns:
+            bool: 如果用户确认完成安装返回True
+        """
+        docker_arm_url = "https://desktop.docker.com/mac/main/arm64/Docker.dmg"
+        docker_intel_url = "https://desktop.docker.com/mac/main/amd64/Docker.dmg"
+        
+        # 检测Mac芯片类型
+        is_apple_silicon = platform.processor() == 'arm'
+        download_url = docker_arm_url if is_apple_silicon else docker_intel_url
+        
+        info("请按照以下步骤手动安装Docker Desktop:")
+        info(f"1. 下载Docker Desktop DMG文件: {download_url}")
+        info("2. 打开下载的DMG文件")
+        info("3. 将Docker图标拖到Applications文件夹")
+        info("4. 从应用程序文件夹启动Docker Desktop")
+        
+        # 尝试自动打开下载页面
+        try:
+            info("正在打开下载链接...")
+            run_command(f"open {download_url}", check=False)
+        except:
+            pass
+            
+        # 等待用户确认完成安装
+        info("安装完成后，请继续运行脚本")
+        confirm = input("您是否已成功安装Docker Desktop? (y/N): ").lower()
+        
+        if confirm == 'y':
+            # 再次检查安装
+            if os.path.exists("/Applications/Docker.app"):
+                success("Docker Desktop已成功安装")
+                return True
+            else:
+                warning("未检测到Docker Desktop，请确保已正确安装")
+                return True  # 用户确认安装了，即使我们没有检测到
+        else:
+            warning("取消安装Docker Desktop")
+            raise DockerInstallError("用户取消安装Docker Desktop")
     
     def install_docker_compose(self):
         """

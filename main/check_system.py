@@ -82,6 +82,56 @@ def get_os_version():
         return platform.version()
 
 
+def is_tencent_os():
+    """
+    检测当前操作系统是否为TencentOS
+    
+    Returns:
+        bool: 如果是TencentOS返回True，否则返回False
+    """
+    if not is_linux():
+        return False
+        
+    try:
+        # 尝试读取发行版信息
+        os_info = {}
+        with open("/etc/os-release", "r") as f:
+            for line in f:
+                if "=" in line:
+                    key, value = line.strip().split("=", 1)
+                    os_info[key] = value.strip('"')
+        
+        # 检查是否包含TencentOS字样
+        return "TencentOS" in os_info.get("NAME", "")
+    except Exception:
+        debug("检测 TencentOS 时出错")
+        return False
+
+
+def get_linux_distribution():
+    """
+    获取Linux发行版信息
+    
+    Returns:
+        dict: 包含发行版信息的字典，如果无法读取则返回空字典
+    """
+    if not is_linux():
+        return {}
+        
+    try:
+        # 尝试读取发行版信息
+        os_info = {}
+        with open("/etc/os-release", "r") as f:
+            for line in f:
+                if "=" in line:
+                    key, value = line.strip().split("=", 1)
+                    os_info[key] = value.strip('"')
+        return os_info
+    except Exception:
+        debug("无法读取Linux发行版信息")
+        return {}
+
+
 def print_system_info():
     """
     打印系统详细信息
