@@ -1,0 +1,52 @@
+services:
+  # PostgreSQL 数据库服务
+  postgres:
+    image: postgres:latest
+    container_name: postgres-test
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_DB: testdb
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - postgres-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # pgAdmin 管理工具
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin-test
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    ports:
+      - "5050:80"
+    networks:
+      - postgres-network
+    depends_on:
+      - postgres
+
+# 持久化存储卷
+volumes:
+  postgres-data:
+    driver: local
+  pgadmin-data:
+    driver: local
+
+# 网络配置
+networks:
+  postgres-network:
+    driver: bridge
