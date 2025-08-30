@@ -7,15 +7,11 @@ docker_compose包
 """
 
 from docker_compose.compose_manager import (
-    install_compose,
-    is_compose_running,
-    reinstall_compose,
-    start_service_by_compose
+    ComposeManager,
+    ComposeError
 )
 
 __all__ = [
-    'install_compose',
-    'is_compose_running',
-    'reinstall_compose',
-    'start_service_by_compose'
+    'ComposeManager',
+    'ComposeError'
 ]
